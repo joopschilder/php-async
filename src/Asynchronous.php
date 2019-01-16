@@ -91,7 +91,7 @@ class Asynchronous
 		 */
 		$instance = self::getInstance();
 		foreach ($instance->children as $index => $pid) {
-			$response = pcntl_waitpid($pid, $status, WNOHANG | WUNTRACED);
+			$response = pcntl_waitpid($pid, $status, WNOHANG);
 			if ($response === $pid)
 				unset($instance->children[$index]);
 		}
@@ -104,7 +104,7 @@ class Asynchronous
 	{
 		$instance = self::getInstance();
 		while (count($instance->children) > 0) {
-			pcntl_wait($status, WUNTRACED);
+			pcntl_wait($status);
 			array_shift($instance->children);
 		}
 	}
