@@ -7,13 +7,13 @@
         }
     ],
     "autoload": {
-        "psr-0": {
-            "": ["src"]
+        "files": ["src/functions.php"],
+        "psr-4": {
+            "Joop\\Asynchronous\\": ["src"]
         }
     },
     "require": {
         "ext-pcntl": "*",
-        "ext-curl": "*",
         "ext-sysvshm": "*"
     }
 }
