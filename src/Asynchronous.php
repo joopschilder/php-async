@@ -239,7 +239,7 @@ class Asynchronous
 		 * The signal handler
 		 */
 		foreach ([SIGINT, SIGTERM] as $SIGNAL)
-			pcntl_signal($SIGNAL, function () use (&$instance) {
+			pcntl_signal($SIGNAL, function ($signal) use (&$instance) {
 				if ($instance->isChild)
 					return;
 
