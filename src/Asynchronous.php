@@ -1,6 +1,6 @@
 <?php
 
-namespace Joop\Asynchronous;
+namespace JoopSchilder\Asynchronous;
 
 /**
  * Class Asynchronous
@@ -128,7 +128,7 @@ class Asynchronous
 	/**
 	 *
 	 */
-	public static function removedShmBlock()
+	public static function removeShmBlock()
 	{
 		$instance = self::getInstance();
 		if (is_resource($instance->shm)) {
@@ -232,19 +232,20 @@ class Asynchronous
 				return;
 
 			self::awaitChildren();
-			self::removedShmBlock();
+			self::removeShmBlock();
 		});
 
 		/*
 		 * The signal handler
 		 */
-		foreach([SIGINT, SIGTERM, SIGUSR1] as $signal)
+		foreach([SIGHUP, SIGINT, SIGQUIT, SIGKILL, SIGTERM] as $signal)
 			pcntl_signal($signal, function($s) use (&$instance) {
 				if ($instance->isChild)
 					return;
+
 				self::killChildren();
 				self::awaitChildren();
-				self::removedShmBlock();
+				self::removeShmBlock();
 			});
 
 	}

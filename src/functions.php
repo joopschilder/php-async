@@ -1,6 +1,7 @@
 <?php
 
-namespace Joop\Asynchronous;
+namespace JoopSchilder\Asynchronous;
+
 
 if (!function_exists('async_run')) {
 

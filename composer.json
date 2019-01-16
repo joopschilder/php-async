@@ -9,7 +9,7 @@
     "autoload": {
         "files": ["src/functions.php"],
         "psr-4": {
-            "Joop\\Asynchronous\\": ["src"]
+            "JoopSchilder\\Asynchronous\\": ["src"]
         }
     },
     "require": {
