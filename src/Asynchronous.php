@@ -235,18 +235,6 @@ class Asynchronous
 			self::removedShmBlock();
 		});
 
-		/*
-		 * The signal handler
-		 */
-		foreach ([SIGINT, SIGTERM] as $SIGNAL)
-			pcntl_signal($SIGNAL, function ($signal) use (&$instance) {
-				if ($instance->isChild)
-					return;
-
-				self::killChildren();
-				self::awaitChildren();
-				self::removedShmBlock();
-			});
 	}
 
 }
