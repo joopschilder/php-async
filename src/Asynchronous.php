@@ -70,12 +70,18 @@ class Asynchronous
 		 */
 		$instance->isChild = true;
 		$instance->attachShm();
+
 		try {
 			$response = call_user_func_array($function, $parameters);
-			shm_put_var($instance->shm, $key, $response ?? Promise::RESPONSE_NONE);
+			if (is_resource($instance->shm))
+				shm_put_var($instance->shm, $key, $response ?? Promise::RESPONSE_NONE);
+
 			exit(0);
+
 		} catch (\Throwable $throwable) {
-			shm_put_var($instance->shm, $key, Promise::RESPONSE_ERROR);
+			if (is_resource($instance->shm))
+				shm_put_var($instance->shm, $key, Promise::RESPONSE_ERROR);
+
 			exit(1);
 		}
 	}
@@ -103,14 +109,6 @@ class Asynchronous
 	public static function awaitChildren()
 	{
 		self::getInstance()->_awaitChildren();
-	}
-
-	/**
-	 * Very, very inappropriate name.
-	 */
-	public static function killChildren()
-	{
-		self::getInstance()->_killChildren();
 	}
 
 	/**
@@ -161,21 +159,6 @@ class Asynchronous
 			pcntl_wait($status);
 			array_shift($this->children);
 		}
-
-		return $this;
-	}
-
-	/**
-	 * @return $this
-	 */
-	private function _killChildren()
-	{
-		/*
-		 * Require the children to terminate
-		 */
-		foreach ($this->children as $index => $pid)
-			if (!posix_kill($pid, SIGKILL))
-				posix_kill($pid, SIGTERM);
 
 		return $this;
 	}
@@ -264,18 +247,14 @@ class Asynchronous
 			$instance->_awaitChildren();
 			$instance->_removeShmBlock();
 		});
+	}
 
+	public function __destruct()
+	{
 		/*
-		 * The signal handler
+		 * To be sure - add destructor
 		 */
-		foreach ([SIGINT, SIGTERM] as $signal)
-			pcntl_signal($signal, function ($signal) use (&$instance) {
-				if ($instance->isChild)
-					return;
-
-				$instance->_killChildren();
-				$instance->_removeShmBlock();
-			});
+		self::removeShmBlock();
 	}
 
 }
