@@ -2,8 +2,6 @@
 
 namespace Joop\Asynchronous;
 
-require_once __DIR__ . '/../vendor/autoload.php';
-
 if (!function_exists('async_run')) {
 
 	/**
