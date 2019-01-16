@@ -1,0 +1,19 @@
+{
+    "name": "joop/php-async",
+    "authors": [
+        {
+            "name": "Joop Schilder",
+            "email": "j.n.m.schilder@st.hanze.nl"
+        }
+    ],
+    "autoload": {
+        "psr-0": {
+            "": ["src"]
+        }
+    },
+    "require": {
+        "ext-pcntl": "*",
+        "ext-curl": "*",
+        "ext-sysvshm": "*"
+    }
+}
