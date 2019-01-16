@@ -91,7 +91,7 @@ class Asynchronous
 		 */
 		$instance = self::getInstance();
 		foreach ($instance->children as $index => $pid) {
-			$response = pcntl_waitpid($pid, $status, WNOHANG);
+			$response = pcntl_waitpid($pid, $status, WNOHANG | WUNTRACED);
 			if ($response === $pid)
 				unset($instance->children[$index]);
 		}
@@ -104,8 +104,36 @@ class Asynchronous
 	{
 		$instance = self::getInstance();
 		while (count($instance->children) > 0) {
-			pcntl_wait($status);
+			pcntl_wait($status, WUNTRACED);
 			array_shift($instance->children);
+		}
+	}
+
+	/**
+	 * Very, very inappropriate name.
+	 */
+	public static function killChildren()
+	{
+		$instance = self::getInstance();
+
+		/*
+		 * Require the children to terminate
+		 */
+		foreach ($instance->children as $index => $pid)
+			if (!posix_kill($pid, SIGKILL))
+				posix_kill($pid, SIGTERM);
+
+	}
+
+	/**
+	 *
+	 */
+	public static function removedShmBlock()
+	{
+		$instance = self::getInstance();
+		if (is_resource($instance->shm)) {
+			shm_remove($instance->shm);
+			shm_detach($instance->shm);
 		}
 	}
 
@@ -199,38 +227,26 @@ class Asynchronous
 		/*
 		 * The shutdown handler
 		 */
-		$handler = function () use (&$instance) {
-			/*
-			 * A child process has no business here.
-			 */
+		register_shutdown_function(function () use (&$instance) {
 			if ($instance->isChild)
 				return;
 
-			/*
-			 * Wait for all children to finish to
-			 * ensure that all writing to the shared
-			 * memory block is finished.
-			 */
 			self::awaitChildren();
-
-			/*
-			 * Ask the kernel to mark the shared memory
-			 * block for removal and detach from it to
-			 * actually allow for removal.
-			 */
-			if (is_resource($instance->shm)) {
-				shm_remove($instance->shm);
-				shm_detach($instance->shm);
-			}
-		};
+			self::removedShmBlock();
+		});
 
 		/*
-		 * Actually register the handler as shutdown
-		 * handler and signal handler for SIGINT, SIGTERM
+		 * The signal handler
 		 */
-		register_shutdown_function($handler);
 		foreach ([SIGINT, SIGTERM] as $SIGNAL)
-			pcntl_signal($SIGNAL, $handler);
+			pcntl_signal($SIGNAL, function () use (&$instance) {
+				if ($instance->isChild)
+					return;
+
+				self::killChildren();
+				self::awaitChildren();
+				self::removedShmBlock();
+			});
 	}
 
 }
