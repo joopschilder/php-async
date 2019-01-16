@@ -98,6 +98,18 @@ class Asynchronous
 	}
 
 	/**
+	 *
+	 */
+	public static function awaitChildren()
+	{
+		$instance = self::getInstance();
+		while (count($instance->children) > 0) {
+			pcntl_wait($status);
+			array_shift($instance->children);
+		}
+	}
+
+	/**
 	 * @return int
 	 */
 	public static function childCount()
@@ -199,10 +211,7 @@ class Asynchronous
 			 * ensure that all writing to the shared
 			 * memory block is finished.
 			 */
-			while (count($instance->children) > 0) {
-				pcntl_wait($status);
-				array_shift($instance->children);
-			}
+			self::awaitChildren();
 
 			/*
 			 * Ask the kernel to mark the shared memory

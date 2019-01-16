@@ -25,3 +25,14 @@ if (!function_exists('async_cleanup')) {
 		Asynchronous::cleanup();
 	}
 }
+
+
+if (!function_exists('async_await_all')) {
+	/**
+	 *
+	 */
+	function async_await_all()
+	{
+		Asynchronous::awaitChildren();
+	}
+}
