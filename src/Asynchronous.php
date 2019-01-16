@@ -102,11 +102,7 @@ class Asynchronous
 	 */
 	public static function awaitChildren()
 	{
-		$instance = self::getInstance();
-		while (count($instance->children) > 0) {
-			pcntl_wait($status);
-			array_shift($instance->children);
-		}
+		self::getInstance()->_awaitChildren();
 	}
 
 	/**
@@ -114,15 +110,7 @@ class Asynchronous
 	 */
 	public static function killChildren()
 	{
-		$instance = self::getInstance();
-
-		/*
-		 * Require the children to terminate
-		 */
-		foreach ($instance->children as $index => $pid)
-			if (!posix_kill($pid, SIGKILL))
-				posix_kill($pid, SIGTERM);
-
+		self::getInstance()->_killChildren();
 	}
 
 	/**
@@ -130,11 +118,7 @@ class Asynchronous
 	 */
 	public static function removeShmBlock()
 	{
-		$instance = self::getInstance();
-		if (is_resource($instance->shm)) {
-			shm_remove($instance->shm);
-			shm_detach($instance->shm);
-		}
+		self::getInstance()->_removeShmBlock();
 	}
 
 	/**
@@ -165,6 +149,52 @@ class Asynchronous
 		$this->attachShm();
 	}
 
+	/**
+	 * @return $this
+	 */
+	private function _awaitChildren()
+	{
+		/*
+		 * Wait for the children to terminate
+		 */
+		while (count($this->children) > 0) {
+			pcntl_wait($status);
+			array_shift($this->children);
+		}
+
+		return $this;
+	}
+
+	/**
+	 * @return $this
+	 */
+	private function _killChildren()
+	{
+		/*
+		 * Require the children to terminate
+		 */
+		foreach ($this->children as $index => $pid)
+			if (!posix_kill($pid, SIGKILL))
+				posix_kill($pid, SIGTERM);
+
+		return $this;
+	}
+
+	/**
+	 * @return $this
+	 */
+	private function _removeShmBlock()
+	{
+		/*
+		 * Detach from the shared memory block
+		 */
+		if (is_resource($this->shm)) {
+			shm_remove($this->shm);
+			shm_detach($this->shm);
+		}
+
+		return $this;
+	}
 
 	/**
 	 * @return $this
@@ -231,23 +261,21 @@ class Asynchronous
 			if ($instance->isChild)
 				return;
 
-			self::awaitChildren();
-			self::removeShmBlock();
+			$instance->_awaitChildren();
+			$instance->_removeShmBlock();
 		});
 
 		/*
 		 * The signal handler
 		 */
-		foreach([SIGHUP, SIGINT, SIGQUIT, SIGKILL, SIGTERM] as $signal)
-			pcntl_signal($signal, function($s) use (&$instance) {
+		foreach ([SIGINT, SIGKILL, SIGTERM] as $signal)
+			pcntl_signal($signal, function ($signal) use (&$instance) {
 				if ($instance->isChild)
 					return;
 
-				self::killChildren();
-				self::awaitChildren();
-				self::removeShmBlock();
+				$instance->_killChildren();
+				$instance->_removeShmBlock();
 			});
-
 	}
 
 }
