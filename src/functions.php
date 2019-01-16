@@ -1,14 +1,13 @@
 <?php
+use JoopSchilder\Asynchronous\Asynchronous;
+use JoopSchilder\Asynchronous\Promise;
 
-namespace JoopSchilder\Asynchronous;
-
-
-if (!function_exists('async_run')) {
+if (!function_exists('async')) {
 
 	/**
 	 * @param callable $function
 	 * @param mixed ...$parameters
-	 * @return Promise|null
+	 * @return Promise
 	 */
 	function async(callable $function, ...$parameters)
 	{
@@ -17,23 +16,25 @@ if (!function_exists('async_run')) {
 }
 
 
-if (!function_exists('async_cleanup')) {
+if (!function_exists('async_reap_zombies')) {
+
 	/**
 	 *
 	 */
-	function async_cleanup()
+	function async_reap_zombies()
 	{
-		Asynchronous::cleanup();
+		Asynchronous::reap();
 	}
 }
 
 
-if (!function_exists('async_await_all')) {
+if (!function_exists('async_wait_all')) {
+
 	/**
 	 *
 	 */
-	function async_await_all()
+	function async_wait_all()
 	{
-		Asynchronous::awaitChildren();
+		Asynchronous::waitForChildren();
 	}
 }

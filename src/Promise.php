@@ -27,7 +27,6 @@ class Promise
 	/** @var mixed|null */
 	private $value;
 
-
 	/**
 	 * @param int $shmKey
 	 */
@@ -53,11 +52,14 @@ class Promise
 	}
 
 	/**
-	 * @return bool
+	 * @return $this
 	 */
-	public function shmValid()
+	private function attempt()
 	{
-		return is_resource($this->shm);
+		if (shm_has_var($this->shm, $this->key))
+			$this->value = shm_get_var($this->shm, $this->key);
+
+		return $this;
 	}
 
 	/**
@@ -65,21 +67,18 @@ class Promise
 	 */
 	public function isResolved()
 	{
-		if ($this->shmValid())
-			return shm_has_var($this->shm, $this->key);
+		$this->attempt();
 
-		return true;
+		return !is_null($this->value);
 	}
 
 
 	/**
 	 * @return bool
 	 */
-	public function isEmpty()
+	public function isVoid()
 	{
-		$value = $this->getValue();
-
-		return $value === self::RESPONSE_NONE || $value === null;
+		return $this->getValue() === self::RESPONSE_NONE;
 	}
 
 
@@ -97,12 +96,7 @@ class Promise
 	 */
 	public function getValue()
 	{
-		if ($this->shmValid())
-			return $this->isResolved() ? $this->resolve()->value : null;
-
-		$this->value = self::RESPONSE_ERROR;
-
-		return $this->value;
+		return $this->isResolved() ? $this->value : null;
 	}
 
 
@@ -113,13 +107,10 @@ class Promise
 	{
 		/*
 		 * Actually block execution until a value is written to
-		 * the expected location of this Promise.
+		 * the expected memory location of this Promise.
 		 */
 		while (!$this->isResolved())
 			usleep(1000);
-
-		if (is_null($this->value) && $this->shmValid())
-			$this->value = shm_get_var($this->shm, $this->key);
 
 		return $this;
 	}
@@ -137,11 +128,13 @@ class Promise
 		 * garbage collector has noticed that there are no more
 		 * references to this Promise instance.
 		 */
-		if ($this->shmValid()) {
-			if (shm_has_var($this->shm, $this->key))
-				shm_remove_var($this->shm, $this->key);
+		if (Runtime::isChild())
+			return;
 
-			shm_detach($this->shm);
-		}
+		if (shm_has_var($this->shm, $this->key))
+			shm_remove_var($this->shm, $this->key);
+
+		shm_detach($this->shm);
+
 	}
 }

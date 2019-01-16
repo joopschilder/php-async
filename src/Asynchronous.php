@@ -8,15 +8,15 @@ namespace JoopSchilder\Asynchronous;
  */
 class Asynchronous
 {
+	public const BLOCK_SIZE_MB = 32;
+	private const BLOCK_SIZE_BYTES = self::BLOCK_SIZE_MB * (1024 ** 2);
+
 	/** @var Asynchronous|null */
 	private static $instance;
 
 	/** @var int */
 	private static $key = 0;
 
-
-	/** @var bool */
-	private $isChild = false;
 
 	/** @var int[] */
 	private $children = [];
@@ -35,8 +35,15 @@ class Asynchronous
 	 */
 	public static function run(callable $function, ...$parameters)
 	{
+		/*
+		 * Prepare for fork
+		 */
 		$instance = self::getInstance();
 		$key = self::generatePromiseKey();
+
+		/*
+		 * Fork the parent
+		 */
 		$pid = pcntl_fork();
 
 		/*
@@ -68,19 +75,17 @@ class Asynchronous
 		 * On failure, write a default response to the block in order for
 		 * the Promise to be able to resolve.
 		 */
-		$instance->isChild = true;
-		$instance->attachShm();
+		Runtime::setChild();
+		$instance->_attachToShm();
 
 		try {
-			$response = call_user_func_array($function, $parameters);
-			if (is_resource($instance->shm))
-				shm_put_var($instance->shm, $key, $response ?? Promise::RESPONSE_NONE);
+			$response = call_user_func($function, ...$parameters);
+			shm_put_var($instance->shm, $key, $response ?? Promise::RESPONSE_NONE);
 
 			exit(0);
 
 		} catch (\Throwable $throwable) {
-			if (is_resource($instance->shm))
-				shm_put_var($instance->shm, $key, Promise::RESPONSE_ERROR);
+			shm_put_var($instance->shm, $key, Promise::RESPONSE_ERROR);
 
 			exit(1);
 		}
@@ -89,7 +94,7 @@ class Asynchronous
 	/**
 	 *
 	 */
-	public static function cleanup()
+	public static function reap()
 	{
 		/*
 		 * Iterate over all child process PIDs and check
@@ -106,7 +111,7 @@ class Asynchronous
 	/**
 	 *
 	 */
-	public static function awaitChildren()
+	public static function waitForChildren()
 	{
 		self::getInstance()->_awaitChildren();
 	}
@@ -142,9 +147,11 @@ class Asynchronous
 		 * Use the filename as an identifier to create the
 		 * System V IPC key.
 		 */
-		$this->shmKey = ftok(__FILE__, 't');
+		if ($this->shmKey == null)
+			$this->shmKey = ftok(__FILE__, 't');
+
 		Promise::__setShmKey($this->shmKey);
-		$this->attachShm();
+		$this->_attachToShm();
 	}
 
 	/**
@@ -179,12 +186,13 @@ class Asynchronous
 		return $this;
 	}
 
+
 	/**
 	 * @return $this
 	 */
-	private function attachShm()
+	private function _attachToShm()
 	{
-		$this->shm = shm_attach($this->shmKey);
+		$this->shm = shm_attach($this->shmKey, self::BLOCK_SIZE_BYTES);
 
 		return $this;
 	}
@@ -224,7 +232,9 @@ class Asynchronous
 		 * 9.999.999 is reached (Windows limit for
 		 * shm keys).
 		 */
-		self::$key = (++self::$key > 9999999) ? 0 : self::$key;
+		self::$key++;
+		if (self::$key > 99999999)
+			self::$key = 0;
 
 		return $promiseKey;
 	}
@@ -241,7 +251,7 @@ class Asynchronous
 		 * The shutdown handler
 		 */
 		register_shutdown_function(function () use (&$instance) {
-			if ($instance->isChild)
+			if (Runtime::isChild())
 				return;
 
 			$instance->_awaitChildren();
@@ -249,12 +259,16 @@ class Asynchronous
 		});
 	}
 
+	/**
+	 *
+	 */
 	public function __destruct()
 	{
-		/*
-		 * To be sure - add destructor
-		 */
-		self::removeShmBlock();
+		if (Runtime::isChild())
+			return;
+
+		$instance = self::getInstance();
+		$instance->_removeShmBlock();
 	}
 
 }
