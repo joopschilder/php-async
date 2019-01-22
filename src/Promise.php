@@ -15,8 +15,7 @@ class Promise
 	public const RESPONSE_ERROR = '__PROMISE_RESPONSE_ERROR__';
 
 	/** @var int */
-	private static $shmKey;
-
+	private static $generatedKey = 0;
 
 	/** @var resource */
 	private $shm;
@@ -27,16 +26,27 @@ class Promise
 	/** @var mixed|null */
 	private $value;
 
+
 	/**
-	 * @param int $shmKey
+	 * @return int
 	 */
-	public static function __setShmKey(int $shmKey)
+	public static function generatePromiseKey()
 	{
 		/*
-		 * Should be done only once: when the Asynchronous class
-		 * has created a key that will be used for IPC.
+		 * Get the current key.
 		 */
-		self::$shmKey = $shmKey;
+		$promiseKey = self::$generatedKey;
+
+		/*
+		 * Reset the key to 0 if the upper bound of
+		 * 9.999.999 is reached (Windows limit for
+		 * shm keys).
+		 */
+		self::$generatedKey++;
+		if (self::$generatedKey > 99999999)
+			self::$generatedKey = 0;
+
+		return $promiseKey;
 	}
 
 
@@ -48,19 +58,9 @@ class Promise
 	{
 		$this->key = $key;
 		$this->value = null;
-		$this->shm = shm_attach(self::$shmKey);
+		$this->shm = shm_attach(Runtime::getSharedMemoryKey());
 	}
 
-	/**
-	 * @return $this
-	 */
-	private function attempt()
-	{
-		if (shm_has_var($this->shm, $this->key))
-			$this->value = shm_get_var($this->shm, $this->key);
-
-		return $this;
-	}
 
 	/**
 	 * @return bool
@@ -136,5 +136,16 @@ class Promise
 
 		shm_detach($this->shm);
 
+	}
+
+	/**
+	 * @return $this
+	 */
+	private function attempt()
+	{
+		if (shm_has_var($this->shm, $this->key))
+			$this->value = shm_get_var($this->shm, $this->key);
+
+		return $this;
 	}
 }

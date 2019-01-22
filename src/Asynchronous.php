@@ -8,24 +8,14 @@ namespace JoopSchilder\Asynchronous;
  */
 class Asynchronous
 {
-	public const BLOCK_SIZE_MB = 8;
-	private const BLOCK_SIZE_BYTES = self::BLOCK_SIZE_MB * (1024 ** 2);
-
 	/** @var Asynchronous|null */
 	private static $instance;
-
-	/** @var int */
-	private static $key = 0;
-
 
 	/** @var int[] */
 	private $children = [];
 
 	/** @var resource */
 	private $shm;
-
-	/** @var int */
-	private $shmKey;
 
 
 	/**
@@ -39,7 +29,7 @@ class Asynchronous
 		 * Prepare for fork
 		 */
 		$instance = self::getInstance();
-		$key = self::generatePromiseKey();
+		$promiseKey = Promise::generatePromiseKey();
 
 		/*
 		 * Fork the parent
@@ -61,7 +51,7 @@ class Asynchronous
 		if ($pid > 0) {
 			$instance->children[] = $pid;
 
-			return new Promise($key);
+			return new Promise($promiseKey);
 		}
 
 		/*
@@ -75,17 +65,17 @@ class Asynchronous
 		 * On failure, write a default response to the block in order for
 		 * the Promise to be able to resolve.
 		 */
-		Runtime::markChild();
+		Runtime::markAsChild();
 		$instance->_attachToShm();
 
 		try {
 			$response = call_user_func($function, ...$parameters);
-			shm_put_var($instance->shm, $key, $response ?? Promise::RESPONSE_NONE);
+			shm_put_var($instance->shm, $promiseKey, $response ?? Promise::RESPONSE_NONE);
 
 			exit(0);
 
 		} catch (\Throwable $throwable) {
-			shm_put_var($instance->shm, $key, Promise::RESPONSE_ERROR);
+			shm_put_var($instance->shm, $promiseKey, Promise::RESPONSE_ERROR);
 
 			exit(1);
 		}
@@ -144,14 +134,11 @@ class Asynchronous
 	private function __construct()
 	{
 		/*
-		 * Use the filename as an identifier to create the
-		 * System V IPC key.
+		 * The reason we do this is for when the shm block
+		 * already exists. We attach, remove, detach and reattach
+		 * to ensure a clean state.
 		 */
-		if ($this->shmKey == null)
-			$this->shmKey = ftok(__FILE__, 't');
-
-		Promise::__setShmKey($this->shmKey);
-		$this->_attachToShm();
+		$this->_attachToShm(); // Attach
 	}
 
 	/**
@@ -192,7 +179,7 @@ class Asynchronous
 	 */
 	private function _attachToShm()
 	{
-		$this->shm = shm_attach($this->shmKey, self::BLOCK_SIZE_BYTES);
+		$this->shm = shm_attach(Runtime::getSharedMemoryKey(), Runtime::getSharedMemorySize());
 
 		return $this;
 	}
@@ -214,29 +201,6 @@ class Asynchronous
 		}
 
 		return self::$instance;
-	}
-
-
-	/**
-	 * @return int
-	 */
-	private static function generatePromiseKey()
-	{
-		/*
-		 * Get the current key.
-		 */
-		$promiseKey = self::$key;
-
-		/*
-		 * Reset the key to 0 if the upper bound of
-		 * 9.999.999 is reached (Windows limit for
-		 * shm keys).
-		 */
-		self::$key++;
-		if (self::$key > 99999999)
-			self::$key = 0;
-
-		return $promiseKey;
 	}
 
 
