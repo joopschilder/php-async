@@ -1,10 +1,12 @@
 # joopschilder/php-async
 Asynchronous PHP callable processing with return values via SysV shared memory.<br/>
 Requires the `php-sysvshm` extension.<br/>
-Works with PHP >= 5.3 due to `shm_attach(...)` returning a resource instead of an int.<br/>
+Works with PHP >= 5.3 due to `shm_attach(...)` returning a resource instead of an int.<br/><br/>
+<b>Note:</b> This package should not be used in a CGI environment, as each PHP runtime that makes a call on the async functions WILL
+create an 8MB shared memory block in RAM. If you run out of memory: you have been warned.
 <br/>
-<b>Note:</b> This project is merely an experiment. It is, however, available on packagist.
-If you think your project lacks witchcraft combined with black magic, just add this package to your `composer.json`:
+<b>Note:</b> This project is an experiment. It is, however, available on packagist.
+If you think your project lacks witchcraft and black magic, just add this package to your `composer.json`:
 ```json
 {
     "require": {

@@ -8,7 +8,7 @@ namespace JoopSchilder\Asynchronous;
  */
 class Asynchronous
 {
-	public const BLOCK_SIZE_MB = 32;
+	public const BLOCK_SIZE_MB = 8;
 	private const BLOCK_SIZE_BYTES = self::BLOCK_SIZE_MB * (1024 ** 2);
 
 	/** @var Asynchronous|null */
@@ -75,7 +75,7 @@ class Asynchronous
 		 * On failure, write a default response to the block in order for
 		 * the Promise to be able to resolve.
 		 */
-		Runtime::setChild();
+		Runtime::markChild();
 		$instance->_attachToShm();
 
 		try {

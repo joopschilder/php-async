@@ -20,27 +20,9 @@ class Runtime
 	/**
 	 *
 	 */
-	public static function setChild()
+	public static function markChild()
 	{
 		self::$inParentRuntime = false;
-	}
-
-
-	/**
-	 *
-	 */
-	public static function setParent()
-	{
-		self::$inParentRuntime = true;
-	}
-
-
-	/**
-	 * @return bool
-	 */
-	public static function isParent()
-	{
-		return self::$inParentRuntime;
 	}
 
 
