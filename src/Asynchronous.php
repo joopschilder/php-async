@@ -2,8 +2,11 @@
 
 namespace JoopSchilder\Asynchronous;
 
+use Throwable;
+
 /**
  * Class Asynchronous
+ * @package JoopSchilder\Asynchronous
  * Responsible for management of child processes and shared memory.
  */
 class Asynchronous
@@ -19,11 +22,38 @@ class Asynchronous
 
 
 	/**
-	 * @param callable $function
-	 * @param mixed ...$parameters
-	 * @return Promise|null;
+	 * Asynchronous constructor.
 	 */
-	public static function run(callable $function, ...$parameters)
+	private function __construct()
+	{
+		/*
+		 * The reason we do this is for when the shm block
+		 * already exists. We attach, remove, detach and reattach
+		 * to ensure a clean state.
+		 */
+		$this->attachToSharedMemory();
+	}
+
+
+	/**
+	 *
+	 */
+	public function __destruct()
+	{
+		if (Runtime::isChild()) {
+			return;
+		}
+
+		self::getInstance()->freeSharedMemoryBlock();
+	}
+
+
+	/**
+	 * @param callable $function
+	 * @param mixed    ...$parameters
+	 * @return Promise|null
+	 */
+	public static function run(callable $function, ...$parameters): ?Promise
 	{
 		/*
 		 * Prepare for fork
@@ -31,16 +61,10 @@ class Asynchronous
 		$instance = self::getInstance();
 		$promiseKey = Promise::generatePromiseKey();
 
-		/*
-		 * Fork the parent
-		 */
 		$pid = pcntl_fork();
-
-		/*
-		 * The fork failed. Instead of returning a promise, we return null.
-		 */
-		if ($pid == -1)
+		if (-1 === $pid) {
 			return null;
+		}
 
 		/*
 		 * Parent process. We keep track of the PID of the child process
@@ -66,25 +90,25 @@ class Asynchronous
 		 * the Promise to be able to resolve.
 		 */
 		Runtime::markAsChild();
-		$instance->_attachToShm();
+		$instance->attachToSharedMemory();
 
 		try {
 			$response = call_user_func($function, ...$parameters);
 			shm_put_var($instance->shm, $promiseKey, $response ?? Promise::RESPONSE_NONE);
 
 			exit(0);
-
-		} catch (\Throwable $throwable) {
+		} catch (Throwable $throwable) {
 			shm_put_var($instance->shm, $promiseKey, Promise::RESPONSE_ERROR);
 
 			exit(1);
 		}
 	}
 
+
 	/**
 	 *
 	 */
-	public static function reap()
+	public static function cleanup(): void
 	{
 		/*
 		 * Iterate over all child process PIDs and check
@@ -93,58 +117,35 @@ class Asynchronous
 		$instance = self::getInstance();
 		foreach ($instance->children as $index => $pid) {
 			$response = pcntl_waitpid($pid, $status, WNOHANG);
-			if ($response === $pid)
+			if ($response === $pid) {
 				unset($instance->children[$index]);
+			}
 		}
 	}
 
-	/**
-	 *
-	 */
-	public static function waitForChildren()
-	{
-		self::getInstance()->_awaitChildren();
-	}
 
 	/**
 	 *
 	 */
-	public static function removeShmBlock()
+	public static function waitForChildren(): void
 	{
-		self::getInstance()->_removeShmBlock();
+		self::getInstance()->awaitChildProcesses();
 	}
+
 
 	/**
-	 * @return int
+	 *
 	 */
-	public static function childCount()
+	public static function removeShmBlock(): void
 	{
-		return count(self::getInstance()->children);
+		self::getInstance()->freeSharedMemoryBlock();
 	}
 
-
-
-	/*
-	 * Private methods below
-	 */
-
-	/**
-	 * Asynchronous constructor.
-	 */
-	private function __construct()
-	{
-		/*
-		 * The reason we do this is for when the shm block
-		 * already exists. We attach, remove, detach and reattach
-		 * to ensure a clean state.
-		 */
-		$this->_attachToShm(); // Attach
-	}
 
 	/**
 	 * @return $this
 	 */
-	private function _awaitChildren()
+	private function awaitChildProcesses(): self
 	{
 		/*
 		 * Wait for the children to terminate
@@ -157,14 +158,12 @@ class Asynchronous
 		return $this;
 	}
 
+
 	/**
 	 * @return $this
 	 */
-	private function _removeShmBlock()
+	private function freeSharedMemoryBlock(): self
 	{
-		/*
-		 * Detach from the shared memory block
-		 */
 		if (is_resource($this->shm)) {
 			shm_remove($this->shm);
 			shm_detach($this->shm);
@@ -177,7 +176,7 @@ class Asynchronous
 	/**
 	 * @return $this
 	 */
-	private function _attachToShm()
+	private function attachToSharedMemory(): self
 	{
 		$this->shm = shm_attach(Runtime::getSharedMemoryKey(), Runtime::getSharedMemorySize());
 
@@ -188,14 +187,9 @@ class Asynchronous
 	/**
 	 * @return Asynchronous
 	 */
-	private static function getInstance()
+	private static function getInstance(): self
 	{
 		if (is_null(self::$instance)) {
-			/*
-			 * This is executed once during runtime;
-			 * when a functionality from this class
-			 * is used for the first time.
-			 */
 			self::$instance = new static();
 			self::registerHandlers();
 		}
@@ -207,32 +201,17 @@ class Asynchronous
 	/**
 	 *
 	 */
-	private static function registerHandlers()
+	private static function registerHandlers(): void
 	{
 		$instance = self::getInstance();
-
-		/*
-		 * The shutdown handler
-		 */
 		register_shutdown_function(function () use (&$instance) {
-			if (Runtime::isChild())
+			if (Runtime::isChild()) {
 				return;
+			}
 
-			$instance->_awaitChildren();
-			$instance->_removeShmBlock();
+			$instance->awaitChildProcesses();
+			$instance->freeSharedMemoryBlock();
 		});
-	}
-
-	/**
-	 *
-	 */
-	public function __destruct()
-	{
-		if (Runtime::isChild())
-			return;
-
-		$instance = self::getInstance();
-		$instance->_removeShmBlock();
 	}
 
 }

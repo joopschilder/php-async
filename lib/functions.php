@@ -16,14 +16,14 @@ if (!function_exists('async')) {
 }
 
 
-if (!function_exists('async_reap_zombies')) {
+if (!function_exists('async_cleanup')) {
 
 	/**
 	 *
 	 */
-	function async_reap_zombies()
+	function async_cleanup()
 	{
-		Asynchronous::reap();
+		Asynchronous::cleanup();
 	}
 }
 

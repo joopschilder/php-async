@@ -1,6 +1,5 @@
 /bin/
 /vendor/
-composer.lock
 /.idea/
 /.phpstorm/
 /.vscode/

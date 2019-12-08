@@ -1,6 +1,5 @@
 <?php
 
-
 namespace JoopSchilder\Asynchronous;
 
 /**
@@ -34,15 +33,10 @@ class Runtime
 	}
 
 
-	/*
-	 * Public
-	 */
-
-
 	/**
 	 * @return int
 	 */
-	public static function getSharedMemorySize()
+	public static function getSharedMemorySize(): int
 	{
 		return self::$sharedMemSize;
 	}
@@ -51,14 +45,14 @@ class Runtime
 	/**
 	 * @return int
 	 */
-	public static function getSharedMemoryKey()
+	public static function getSharedMemoryKey(): int
 	{
 		/*
-		 * Use the filename as an identifier to create the
-		 * System V IPC key.
+		 * Use the filename as an identifier to create the System V IPC key.
 		 */
-		if (is_null(self::$sharedMemKey))
+		if (is_null(self::$sharedMemKey)) {
 			self::$sharedMemKey = ftok(__FILE__, 't');
+		}
 
 		return self::$sharedMemKey;
 	}
@@ -67,7 +61,7 @@ class Runtime
 	/**
 	 * @return bool
 	 */
-	public static function isChild()
+	public static function isChild(): bool
 	{
 		return !self::$inParentRuntime;
 	}
@@ -78,30 +72,30 @@ class Runtime
 	 * To be used by internal classes.
 	 */
 
-
 	/**
-	 * @param int $size_mb
+	 * @param int $sizeMegaBytes
 	 */
-	public static function _setSharedMemorySizeMB(int $size_mb)
+	public static function setSharedMemorySizeMB(int $sizeMegaBytes): void
 	{
-		self::$sharedMemSize = abs($size_mb) * (1024 ** 2);
+		self::$sharedMemSize = abs($sizeMegaBytes) * (1024 ** 2);
 	}
 
 
 	/**
-	 * @param int $size_b
+	 * @param int $sizeBytes
 	 */
-	public static function _setSharedMemorySizeB(int $size_b)
+	public static function setSharedMemorySizeB(int $sizeBytes): void
 	{
-		self::$sharedMemSize = $size_b;
+		self::$sharedMemSize = $sizeBytes;
 	}
 
 
 	/**
 	 *
 	 */
-	public static function markAsChild()
+	public static function markAsChild(): void
 	{
 		self::$inParentRuntime = false;
 	}
+
 }

@@ -2,6 +2,10 @@
 
 namespace JoopSchilder\Asynchronous;
 
+/**
+ * Class Promise
+ * @package JoopSchilder\Asynchronous
+ */
 class Promise
 {
 	/*
@@ -43,8 +47,9 @@ class Promise
 		 * shm keys).
 		 */
 		self::$generatedKey++;
-		if (self::$generatedKey > 99999999)
+		if (self::$generatedKey > 99999999) {
 			self::$generatedKey = 0;
+		}
 
 		return $promiseKey;
 	}
@@ -65,7 +70,7 @@ class Promise
 	/**
 	 * @return bool
 	 */
-	public function isResolved()
+	public function isResolved(): bool
 	{
 		$this->attempt();
 
@@ -76,7 +81,7 @@ class Promise
 	/**
 	 * @return bool
 	 */
-	public function isVoid()
+	public function isVoid(): bool
 	{
 		return $this->getValue() === self::RESPONSE_NONE;
 	}
@@ -85,7 +90,7 @@ class Promise
 	/**
 	 * @return bool
 	 */
-	public function isError()
+	public function isError(): bool
 	{
 		return $this->getValue() === self::RESPONSE_ERROR;
 	}
@@ -103,14 +108,15 @@ class Promise
 	/**
 	 * @return $this
 	 */
-	public function resolve()
+	public function resolve(): self
 	{
 		/*
 		 * Actually block execution until a value is written to
 		 * the expected memory location of this Promise.
 		 */
-		while (!$this->isResolved())
-			usleep(1000);
+		while (!$this->isResolved()) {
+			usleep(50);
+		}
 
 		return $this;
 	}
@@ -128,24 +134,28 @@ class Promise
 		 * garbage collector has noticed that there are no more
 		 * references to this Promise instance.
 		 */
-		if (Runtime::isChild())
+		if (Runtime::isChild()) {
 			return;
+		}
 
-		if (shm_has_var($this->shm, $this->key))
+		if (shm_has_var($this->shm, $this->key)) {
 			shm_remove_var($this->shm, $this->key);
+		}
 
 		shm_detach($this->shm);
-
 	}
+
 
 	/**
 	 * @return $this
 	 */
-	private function attempt()
+	private function attempt(): self
 	{
-		if (shm_has_var($this->shm, $this->key))
+		if (shm_has_var($this->shm, $this->key)) {
 			$this->value = shm_get_var($this->shm, $this->key);
+		}
 
 		return $this;
 	}
+
 }

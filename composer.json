@@ -1,19 +1,26 @@
 {
-    "name": "joopschilder/php-async",
-    "authors": [
-        {
-            "name": "Joop Schilder",
-            "email": "j.n.m.schilder@st.hanze.nl"
-        }
-    ],
-    "autoload": {
-        "files": ["src/functions.php"],
-        "psr-4": {
-            "JoopSchilder\\Asynchronous\\": ["src"]
-        }
-    },
-    "require": {
-        "ext-pcntl": "*",
-        "ext-sysvshm": "*"
+  "name": "joopschilder/php-async",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Joop Schilder",
+      "email": "jnmschilder@protonmail.com",
+      "homepage": "https://joopschilder.nl/",
+      "role": "Developer"
     }
+  ],
+  "autoload": {
+    "files": [
+      "lib/functions.php"
+    ],
+    "psr-4": {
+      "JoopSchilder\\Asynchronous\\": [
+        "src"
+      ]
+    }
+  },
+  "require": {
+    "ext-pcntl": "*",
+    "ext-sysvshm": "*"
+  }
 }
